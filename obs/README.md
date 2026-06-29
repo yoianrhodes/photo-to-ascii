@@ -22,12 +22,39 @@ there is nothing to compile.
 > capture cards, media files, browser sources, **and** whole scenes
 > (apply it to a *Scene* source or a nested Group to ASCII-ify a composite).
 
+## Choosing your own characters
+
+The shipped `photo-to-ascii.shader` uses the classic ramp `@%#*+=-:. ` (dense →
+sparse). To use **any characters you want**, regenerate the shader with the
+included script — a GPU shader has no font, so the characters are rasterized
+from a real font and baked into the shader's glyphs:
+
+```bash
+cd obs
+python3 build_ascii_shader.py --chars "MWNXKkxocl:. "
+# your own font, finer glyphs:
+python3 build_ascii_shader.py --chars "01" --font /path/to/Font.ttf --width 8 --height 10
+```
+
+Then reload `photo-to-ascii.shader` in OBS (or `Refresh` the filter). Notes:
+
+- Characters are auto-ordered **dark → light** by how much ink each one has, so
+  type them in any order. Use `--keep-order` to keep your exact order.
+- Include a **space** in `--chars` to leave the darkest cells blank.
+- `--width`/`--height` set the glyph bitmap size (default 8×8, keep
+  `width*height ≤ 72`); bigger = crisper glyphs at the same runtime cost.
+- Requires `pip install Pillow numpy`. Run `python3 build_ascii_shader.py -h`
+  for all options.
+
+At runtime the **Character Count** slider then dials how many of your baked
+characters to actually use (2 → just the lightest+darkest, up to the full set).
+
 ## Controls
 
 | Control | What it does |
 |---|---|
 | **Character Size (px)** | Pixels per character cell = the **input resolution** the image is read at. Bigger → chunkier, fewer, larger characters. Roughly `columns = source_width / size`. |
-| **Character Count** | How many distinct glyphs (1–9) map the dark→bright ramp. Fewer = harsher, more poster-ized; 9 = smoothest gradient. |
+| **Character Count** | How many of your baked characters to use, from 2 up to the full ramp. Fewer = harsher, more poster-ized; full = smoothest gradient. (Change *which* characters with `build_ascii_shader.py` above.) |
 | **Contrast** | Stretches the brightness→glyph mapping. |
 | **Invert Brightness** | Swaps which end of the ramp gets the dense glyphs (e.g. for light-on-dark vs dark subjects). |
 | **Use Source Colors** | On: each glyph is tinted by the video. Off: every glyph uses **Text Color**. |
@@ -58,9 +85,9 @@ The filter is built to sit in a stack of video signals. Common setups:
 - One texture sample per character cell + one for the source = trivially fast;
   cost is essentially independent of *Character Count*.
 - Larger **Character Size** = fewer cells = even cheaper.
-- Everything is procedural (the 5×5 glyph bitmaps are encoded in the shader, a
-  technique adapted from movAX13h's classic ASCII-art shader), so there is no
-  font/atlas texture to load.
+- The glyph bitmaps are baked straight into the shader as packed bitmasks (no
+  font/atlas texture to load at runtime), so character lookup is a couple of
+  ALU ops per pixel.
 
 ## Related
 
